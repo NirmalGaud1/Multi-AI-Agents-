@@ -3,7 +3,7 @@ import google.generativeai as genai
 
 # Gemini API configuration
 API_KEY = "AIzaSyA-9-lTQTWdNM43YdOXMQwGKDy0SrMwo6c"
-MODEL_NAME = "models/gemini-1.5-flash"
+MODEL_NAME = "gemini-1.5-flash"
 genai.configure(api_key=API_KEY)
 
 class TaskSolvingAgent:
@@ -12,6 +12,7 @@ class TaskSolvingAgent:
         self.role = role
         self.history = []
         self.task_solution = []
+        self.model = genai.GenerativeModel(MODEL_NAME)
 
     def generate_response(self, task, other_agent_response=None):
         try:
@@ -26,10 +27,10 @@ class TaskSolvingAgent:
                     f"You are {self.name}, a {self.role} AI. Your task is: '{task}'. "
                     f"Propose an initial idea or plan to solve the task. Keep it concise (50-100 words)."
                 )
-            response = genai.generate_text(model=MODEL_NAME, prompt=prompt, temperature=0.7)
-            self.history.append(response.result)
-            self.task_solution.append(response.result)
-            return response.result
+            response = self.model.generate_content(prompt)
+            self.history.append(response.text)
+            self.task_solution.append(response.text)
+            return response.text
         except Exception as e:
             return f"Error: {str(e)}"
 
@@ -56,11 +57,12 @@ st.title("AI Agent Task Solver")
 st.write("Enter a task for two AI agents to solve collaboratively using Google Gemini API. They will discuss and refine the solution over 4 interactions.")
 
 # Input for task
-task = st.text_input("Task to Solve", placeholder="E.g., Design a simple app interface for task management")
+default_task = "Plan content for me to teach AI agents"
+task = st.text_input("Task to Solve", value=default_task, key="task_input")
 num_interactions = 4  # Fixed to 4 interactions
 
 # Button to start collaboration
-if st.button("Solve Task"):
+if st.button("Solve Task", key="solve_task_button"):
     if task:
         with st.spinner("Agents are solving the task..."):
             conversation, final_solution = run_task_collaboration(task, num_interactions)
@@ -69,22 +71,21 @@ if st.button("Solve Task"):
             st.write(message)
         st.subheader("Final Solution")
         st.write(final_solution)
+        
+        # Store in session state
+        st.session_state.conversation = conversation
+        st.session_state.final_solution = final_solution
     else:
         st.error("Please enter a task.")
 
-# Store conversation in session state
-if "conversation" not in st.session_state:
-    st.session_state.conversation = []
-if "final_solution" not in st.session_state:
-    st.session_state.final_solution = ""
-if task and st.button("Solve Task"):
-    st.session_state.conversation = conversation
-    st.session_state.final_solution = final_solution
-
-# Display previous conversation
-if st.session_state.conversation:
+# Display previous conversation if available
+if "conversation" in st.session_state and st.session_state.conversation:
     st.subheader("Previous Collaboration")
     for message in st.session_state.conversation:
         st.write(message)
     st.subheader("Previous Final Solution")
     st.write(st.session_state.final_solution)
+
+# Run the app
+if __name__ == "__main__":
+    st.write("Ready to solve your task!")
